@@ -27,7 +27,7 @@ import datetime     # need for saving to excel
 #import the following extra files which should be in the same folder as MAIN
 from extract_Circles import  get_Circles, image_Prep, get_ROI, multiple_dfs, make_CV2image, sub_Matrix
 
-from skimage import exposure  
+
 
 #------Change the parameters below ----------
 # path to Image folder 
