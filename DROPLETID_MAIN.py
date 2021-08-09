@@ -1,17 +1,31 @@
 # -*- coding: utf-8 -*-
+__author__ = 'Lael Wentland'
+__copyright__ = 'Copyright 2021, GH labs'
+__credits__ = ['Lael Wentlad', 'Louise Hansen', 'Josh Bishop']
+__license__ = 'Apache 2.0'
+__version__ = '1.0'
+__maintainer__ = 'Lael Wentland'
+__email__ = 'lael.wentland@ghlabs.org'
+__status__ = 'Development'
+__fullname__ = 'Digital Droplets Project'
+
 """
 This is the main file for the python version of DropletID
 
 Users need to change the file pathway to a folder that hold the .tif images 
-to be analyzed and the sequence of images in the .tif stack 
+to be analyzed and the sequence of images in the .tif stack
 
-The output  is a saved image of the circle detection, composite image, and data
-on the number of positive droplets
+If you choose to show images you need to exit each image that pops up in the viewer 
+or else the code wont go on, 
+
+The output  is a saved image of the circle detection, composite image (coming soon)
+ and data on the number of positive droplets
 
 Necessary files to be in folder in addition to all the different libraries I use: 
     1) extract_Circle.py : holds all the functions for image analysis
     2) inference.py : stats analysis files to get concentration
-@author: LaelWentland
+
+    @author: LaelWentland
 """
 #import necessary toolboxes
 
@@ -28,19 +42,19 @@ import pandas as pd
 import datetime
 
 #import the following extra files which should be in the same folder as MAIN
-from extract_Circles import  get_Circles, image_Prep, get_ROI, multiple_dfs, sub_Matrix, make_CV2image
+from extract_Circles import  get_Circles, image_Prep, get_ROI, multiple_dfs, make_CV2image
 
 
 #------Change the parameters below ----------
 
 # path to Image folder - copy absolute path of the folder
-directory = r'C:/Users/LaelWentland/Global Health Labs, Inc/Digital Assay Feasibility - Data/Interns/Lael W/08052021'
+directory = r'C:/Users/LaelWentland/Global Health Labs, Inc/Digital Assay Feasibility - Data/Interns/Lael W/20210723 Khe Concentration curve in droplets and bulk/Images'
 replicates = 1
-imagingChannels = ['BF', 'QD575']
+imagingChannels = ['BF', 'JOE']
 showImage = 1  # 0 = no don't show, 1  = yes please show images!
 saveToExcel = 1 # 0 = no don't save, 1 = yes please save to excel!
-thresholdTrue = 0 # 0 = don't do the thresholding analysis placeholder
-compositeSave = 0 # 0 = don't create and show composite images
+thresholdTrue = 1 # 0 = don't do the thresholding analysis placeholder
+compositeSave = 0 # 0 = don't create and show composite images- coming soon!
 thresholds = [.26] # choose threshold manually, I may change to automatic later, based on neg data
 
 #------------------------------------
@@ -53,13 +67,16 @@ path = directory + '/*.tif'
 os.chdir(directory)
 
 #grabs all the file names of .tif images in folder
-filenames = glob.glob(path)
-filenames.sort()
+fileNames = glob.glob(path)
+fileNames.sort()
 
+#List that will store all the data on droplet locations and intensities
 allImages = []
-allPositive = np.empty([])
 
-for count, name in enumerate(filenames):
+#Array that stores the number of positive droplets found
+allPositive = np.array([])
+
+for count, name in enumerate(fileNames):
     #tifffile- seems to work 
     #image should alrady be in grey scale so no need to change to RGB space
     image = tifffile.imread(name)
@@ -87,10 +104,8 @@ for count, name in enumerate(filenames):
                 # need to stop the function
                 raise Exception("No Droplets Were Detected! Check the Image Quality")
             
-            #volDistribution = imageInfo[:,4]
-            
         else:
-            # image should
+            # image should not be modified
             fluorImg = org_img
            
             # run function to  get ROI average intensity in the squares
@@ -102,11 +117,14 @@ for count, name in enumerate(filenames):
             
             # threshold data
             if thresholdTrue == 1:
-                posDroplets = roiNParray >= thresholds[i-1]
-                imageInfoAll  = np.concatenate((imageInfoAll, posDroplets), axis = 1)
+                posDropletsBool = roiNParray >= thresholds[i-1]
                 
-                positveDroplets = np.sum(posDroplets)
-                allPositive = np.append(allPositive, positveDroplets)
+                # add boolean array to all imageInfo
+                imageInfoAll  = np.concatenate((imageInfoAll, posDropletsBool), axis = 1)
+                
+                # get total number of positive droplets
+                positveDropletsSum = np.sum(posDropletsBool)
+                allPositive = np.append(allPositive, positveDropletsSum)
                 
                 #plot ROI intensity histogram with cutoff line
                 plt.title(channelName + " Pixel Intensity Histogram")
@@ -116,42 +134,54 @@ for count, name in enumerate(filenames):
                 y, bins, patches = plt.hist(roiIntensities, bins = 50 , range = [0, 1], density=True)
                 plt.axvline(thresholds[i-1], color='k', linestyle='dashed', linewidth=1)
                 plt.show()
-              
+                
             
             # draw keypoints onfluorescent images
             if showImage == 1:
-                currentImageData = imageInfo[:,0:3]
+                currentImageData = imageInfoAll
+                
+                # modify the fluorescent/QD image to make it easier to look at
+                fluorImg = exposure.rescale_intensity(fluorImg)
                 img_rescale = cv2.convertScaleAbs(fluorImg, alpha =(255.0/65535.0))
+                
                 #make 3D so can put color on images
-                img_rescale = np.dstack((img_rescale,img_rescale,img_rescale))
+                img_stack = np.dstack((img_rescale,img_rescale,img_rescale))
                 
                 if thresholdTrue == 1:
                     # only plot/outline the positive droplets
-                    posIndex = np.where(posDroplets == 1) # index of positive droplets
-                    currentImageData = currentImageData[posIndex[0], :]
+                    reducedImageInfo = currentImageData*posDropletsBool
+           
+                    # crop out the data that is not positive
+                    currentImageData = np.delete(reducedImageInfo,np.where(reducedImageInfo[:,6]== 0), axis=0)
+             
+                
+                for i in range(imageInfoAll.shape[0]):
+                    r = int(imageInfoAll[i,2])
+                    x = int(imageInfoAll[i,0])
+                    y = int(imageInfoAll[i,1])
+                    
+                    # add circles to all detected cirlces
+                    img_rescale = cv2.circle(img_stack,(x,y),r, (0,255,0), thickness = 3)
                     
                 for i in range(currentImageData.shape[0]):
                     r = int(currentImageData[i,2])
                     x = int(currentImageData[i,0])
                     y = int(currentImageData[i,1])
                     
-                    # add circles
-                    img_rescale = cv2.circle(img_rescale,(x,y),r, (255,0,0))
-                    
-                    # add rectangles
+            
                     s = int(r / math.sqrt(2)) # 1/2 side of the square
                     startRow = int(round(x)) - s
                     startColumn = int(round(y)) - s
                     
-                    #draw rectangle
-                    modImage = cv2.rectangle(img_rescale,(startRow, startColumn), (startRow + s*2, startColumn + s*2), (0,0,255), 	thickness = 1,)
+                    #draw rectangles on only detected positive droplets
+                    modImage = cv2.rectangle(img_stack,(startRow, startColumn), (startRow + s*2, startColumn + s*2), (255,0,0), 	thickness = 2)
                 
                 
                 #show the image (resized to fit screen)
-                make_CV2image(img_rescale, channelName + ' Circle Locations', 1,0)
+                make_CV2image(img_stack, channelName + ' Circle Locations', 1,0)
                 
                 
-                # trh
+            
             #save image info to List if this is the last image in the vertical tif stack
             if channel == imagingChannels[-1]:
                 allImages.append(imageInfoAll)
@@ -164,6 +194,7 @@ for count, name in enumerate(filenames):
 # save data to excel if needed
 if saveToExcel == 1:
     dFImage = []
+    imageNames = [i[i.find('\\')+1 : i.find('.tif')] for i in fileNames]
     # add names of channels to the columns of the sets
     imagingChannels = imagingChannels.remove('BF')
     addString = ' Normalized Intensity'
@@ -183,6 +214,6 @@ if saveToExcel == 1:
     date = datetime.datetime.now()
     date = date.strftime("%Y-%m-%d")
     exceFileName = directory + '/' + date + ' ImagingData.xlsx'
-    multiple_dfs(dFImage, 'Results', exceFileName , 1)    
+    multiple_dfs(dFImage, imageNames, 'Results', exceFileName , 1)    
 
 
