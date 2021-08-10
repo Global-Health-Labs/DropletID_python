@@ -186,8 +186,8 @@ def multiple_dfs(df_list, imageNames, sheets, file_name, spaces):
         
         # write number of total droplets found
         totalDroplets = dataframe.shape[0]
-        worksheet.write_string(row+1, column , 'Number of total droplets')
-        worksheet.write_string(row+1, column + 1, str(totalDroplets))
+        worksheet.write_string(row + 1, column , 'Number of total droplets')
+        worksheet.write_string(row + 1, column + 1, str(totalDroplets))
         
         
         if dataframe.columns.str.contains('Positive Droplets').any():
