@@ -40,8 +40,8 @@ def get_Circles(img, fileName, showImg):
     # Initialize parameter settiing using cv2.SimpleBlobDetector
     params = cv2.SimpleBlobDetector_Params()
     # min and max radius expected in pixles
-    maxRadiusPixel = 80
-    minRadiusPixel = 8
+    maxRadiusPixel = 100
+    minRadiusPixel = 10
     
     # Set Area filtering parameters
     params.filterByArea = True
@@ -97,7 +97,8 @@ def get_Circles(img, fileName, showImg):
     for i in range(number_of_circles):
         circle_radii[i, 0] = keypoints[i].size/2
     
-    #makes array of [x, y] center coordinates I don't know how to do this for the radii
+    #makes array of [x, y] center coordinates 
+    #******I don't know how to do this for the radii *********
     xyPoints = cv2.KeyPoint_convert(keypoints[:])
    
     #convert pixel radii to um and volume
@@ -143,43 +144,35 @@ def image_Prep(img, channel, imageName, imageShow):
     return img_bw
 
 
-# callable function that returns the average intensity of
-def get_ROI(fluorImg, imageBFInfo):
+# callable function that returns the average intensity of ROIs
+def get_ROI(fluorImg, circs, scaleFactor):
     '''returns a list of average pixel intensities of droplets in square ROI 
     calculated  from x,y, and radius passed to the function
-    normFluorImg: should be the QD or fluorescent image (already normalized 
-    to 2**14) that you want to get average intensity values for
-    imageBFInfo: a nparray of three columns (x, y, and r)
-    
+    normFluorImg: should be the QD or fluorescent image (not normalized)
+    that you want to get average intensity values for
+    circs: a nparray of three columns (x, y, and r) that is returned from the get_Circles function
+    scale Factor: how small the rectangle roi should be in the circle
     '''
-    normFluorImg = fluorImg / (2**14)
-    avgIntensity = []
-    for x, y, r in imageBFInfo[:,0:3]:
-        print( r'x = %.1f , y = %.1f , r = %.1f' %(x, y, r))
-        
-        s = int(r / math.sqrt(2)) # 1/2 side of the square
-   
-        #print(s)
-        startRow = int(round(x)) - s # top left of the square
-        #print(startRow)
-        startColumn = int(round(y)) - s   # bottom right of the square
-        #print(startColumn)
-        
-        # grab all the cells that are within the square
-        roiMatrix = sub_Matrix(normFluorImg, startRow, startColumn, s*2 )
-        
-        #print(roiMatrix)
-        roiAvg = np.mean(roiMatrix.flatten())
-        
-        #print(roiAvg)
-        avgIntensity.append(roiAvg)
-        #h = roiAvg >= 0.26
-        #print(bool( h))
+    img_max = np.array(fluorImg.shape).max()
+    img_min = 0
+    # normalize image
+    normFluorImg = fluorImg / (2**14 -1)
+    # calculate the rectangles in the circular ROI  matrix is upper left x, upper left y, side of half of the square
+    roiRect = [[int(circ[0]-circ[2]/math.sqrt(2)*scaleFactor), int(circ[1]-circ[2]/math.sqrt(2)*scaleFactor), int(circ[2]*math.sqrt(2)*scaleFactor)] for circ in circs]
+    # remove any indicies outside the bounds of the image matrix
+    roiRect = np.clip(roiRect, img_min, img_max)
     
-    avgIntensity = np.array(avgIntensity)
-    return avgIntensity
+    #grab average value in each roi
+    avgRoiVal = [np.mean( normFluorImg[rect[1]:rect[1]+rect[2],rect[0]:rect[0]+rect[2]]) for rect in roiRect]
 
-def multiple_dfs(df_list, sheets, file_name, spaces):
+    #change from list to nparray
+    avgIntensity = np.array(avgRoiVal)
+    roiLoc = roiRect
+    return roiLoc, avgIntensity
+    
+
+def multiple_dfs(df_list, imageNames, sheets, file_name, spaces):
+    # converts a list of pd dataframes to an excel file
     writer = pd.ExcelWriter(file_name,engine='xlsxwriter') 
     workbook=writer.book
     worksheet=workbook.add_worksheet(sheets)
@@ -187,14 +180,30 @@ def multiple_dfs(df_list, sheets, file_name, spaces):
     row = 0
     column = 0
     
-    for dataframe in df_list:
-        # write number of total droplets found
-        worksheet.write_string(row, column, 'Number of total droplets')
-        worksheet.write_string(row, column + 1, str(dataframe.shape[0]))
+    for i, dataframe in enumerate(df_list):
+        # write name of image
+        worksheet.write_string(row, column, imageNames[i] )
         
-        # add data
-        dataframe.to_excel(writer,sheet_name=sheets,startrow = row + 2 , startcol=column, header =True )   
+        # write number of total droplets found
+        totalDroplets = dataframe.shape[0]
+        worksheet.write_string(row + 1, column , 'Number of total droplets')
+        worksheet.write_string(row + 1, column + 1, str(totalDroplets))
+        
+        
+        if dataframe.columns.str.contains('Positive Droplets').any():
+            worksheet.write_string(row + 2, column, 'Number of positive droplets')
+            worksheet.write_string(row + 3, column, 'Fraction positive')
+            colNames = [col for col in dataframe.columns if 'Positive Droplets'in col]
+            
+            for col in colNames:
+                posDroplets = dataframe[col].sum()
+                index = dataframe.columns.get_loc(col)
+                worksheet.write_string(row + 2, column +  index+ 1,str(posDroplets ))
+                worksheet.write_string(row + 3, column + index+ 1,str( posDroplets/totalDroplets))
+            
+        dataframe.to_excel(writer,sheet_name=sheets,startrow = row + 4 , startcol=column, header =True )   
         column = column + dataframe.shape[1] + spaces + 1
+    
     writer.save()
     writer.close()
 
