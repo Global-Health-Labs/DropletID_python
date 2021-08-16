@@ -110,36 +110,34 @@ def get_Circles(img, fileName, showImg):
     
     return all_Data
 
-#callable function to threshold images for analysis
+#callable function to threshold BF for analysis
 def image_Prep(img, channel, imageName, imageShow):
     
     channelName = channel + ' in '  + imageName
-    if channel == 'BF':
-        #increase brightness but stay  in 14 bit space
-        image_rescale = exposure.rescale_intensity(img)
-        #Dont' really need to threshold
+       
+    #increase brightness but stay  in 14 bit space
+    image_rescale = exposure.rescale_intensity(img)
+    #Dont' really need to threshold
+    
+    img_bw = cv2.convertScaleAbs(image_rescale, alpha =(255.0/65535.0))
         
-        img_bw = cv2.convertScaleAbs(image_rescale, alpha =(255.0/65535.0))
-        
-        """
-        if imageShow == 1:
-            #plot and save modified image, needs to be converted to 8 bit to show
-            #image8 = cv2.convertScaleAbs(img_bw, alpha =(255.0/65535.0))
-            re = 600.0 / img_bw.shape[1]
-            dim = (600, int(img_bw.shape[0] * re))
-            resizeOutput = cv2.resize(img_bw, dim, interpolation=cv2.INTER_AREA)
-        
-            cv2.imshow(channelName, resizeOutput )
-        
-            #uncomment if you want to save these images
-            #fileName =  channelName + '16bitRescale.png'
-            #cv2.imwrite(fileName, resizeOutput)
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
-        """
-    else:
-        # no modificaiton
-        img_bw = img #/ (2**14)
+    """
+    if imageShow == 1:
+        #plot and save modified image, needs to be converted to 8 bit to show
+        #image8 = cv2.convertScaleAbs(img_bw, alpha =(255.0/65535.0))
+        re = 600.0 / img_bw.shape[1]
+        dim = (600, int(img_bw.shape[0] * re))
+        resizeOutput = cv2.resize(img_bw, dim, interpolation=cv2.INTER_AREA)
+    
+        cv2.imshow(channelName, resizeOutput )
+    
+        #uncomment if you want to save these images
+        #fileName =  channelName + '16bitRescale.png'
+        #cv2.imwrite(fileName, resizeOutput)
+        cv2.waitKey(0)
+        cv2.destroyAllWindows()
+    """
+
         
     return img_bw
 
