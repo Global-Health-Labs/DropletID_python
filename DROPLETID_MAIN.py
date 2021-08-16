@@ -48,14 +48,14 @@ from extract_Circles import  get_Circles, image_Prep, get_ROI, multiple_dfs, mak
 #------Change the parameters below ----------
 
 # path to Image folder - copy absolute path of the folder
-directory = r'C:/Users/LaelWentland/Global Health Labs, Inc/Digital Assay Feasibility - Data/Interns/Lael W/20210723 Khe Concentration curve in droplets and bulk/Images'
+directory = r'C:/Users/LouiseHansen/Global Health Labs, Inc/Digital Assay Feasibility - Louise H/08062021 - imaging of multimodal right after assay completion'
 replicates = 1
-imagingChannels = ['BF', 'JOE']
+imagingChannels = ['Cy5', 'BF', 'JOE']
 showImage = 0  # 0 = no don't show, 1  = yes please show images!
 saveToExcel = 1 # 0 = no don't save, 1 = yes please save to excel!
 thresholdTrue = 1 # 0 = don't do the thresholding analysis placeholder
 compositeSave = 0 # 0 = don't create and show composite images- coming soon!
-thresholds = [.3] # choose threshold manually, I may change to automatic later, based on neg data
+thresholds = [.3, .3] # choose threshold manually, I may change to automatic later, based on neg data
 # there should be one threshold for each channel that is not BF
 #------------------------------------
 
