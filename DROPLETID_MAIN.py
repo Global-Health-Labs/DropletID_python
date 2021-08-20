@@ -83,9 +83,9 @@ for count, name in enumerate(fileNames):
     #tifffile- seems to work 
     #image should alrady be in grey scale so no need to change to RGB space
     image = tifffile.imread(name)
-    imageName = name[name.find('\\')+1:name.find('.tif')]
+    imageName = name[name.rindex('\\')+1:name.find('.tif')]
     
-    # get location of brightfield
+    # get location of brightfield in image stack
     indexBF = imagingChannels.index('BF')
     imageBF = image[:,:,indexBF]
     
@@ -169,7 +169,7 @@ for count, name in enumerate(fileNames):
             
         
         #save image info to List if this is the last image in the vertical tif stack
-        if channel == imagingChannels[-1]:
+        if channel ==  fluorQDChannels[-1]:
             allImages.append(imageInfo)
     
     # create  and save composite images if needed
@@ -181,7 +181,7 @@ volDistribution = [img[:,-3] for img in allImages]
 # save data to excel if needed
 if saveToExcel == 1:
     dFImage = []
-    imageNames = [i[i.find('\\')+1 : i.find('.tif')] for i in fileNames]
+    imageNames = [i[i.rindex('\\')+1 : i.find('.tif')] for i in fileNames]
     # add names of channels to the columns of the sets
     
     addString = ' Normalized Intensity'
