@@ -96,82 +96,87 @@ for count, name in enumerate(fileNames):
     #extract circle info from images
     imageInfo = get_Circles(imageAdjusted, 'BF in ' + imageName, showImage)
     
-    # if you cant find any circles
-    if imageInfo.shape == 0:
-        # if you get no circles, the function should tell you but you 
-        # need to stop the function
-        raise Exception("No Droplets Were Detected! Check the Image Quality")
-            
-    
-    #remove BF imgaging channel from list so it is not iterated over
-    fluorQDChannels = imagingChannels.copy()
-    fluorQDChannels.remove('BF')
-    
-    # remove the BF image from stack
-    imageOtherStacks = np.copy(image)
-    imageOtherStacks = np.delete(imageOtherStacks,indexBF, 2)
-    
-    #run through all the other stacks in the .tif file
-    for i, channel in enumerate(fluorQDChannels):
-        channelName = channel + ' in '  + imageName
+    if len(imagingChannels) > 1: # if there is more than just BF
+        # if you cant find any circles
+        if imageInfo.shape == 0:
+            # if you get no circles, the function should tell you but you 
+            # need to stop the function
+            raise Exception("No Droplets Were Detected! Check the Image Quality")
+                
+        #there add if
+        #remove BF imgaging channel from list so it is not iterated over
+        fluorQDChannels = imagingChannels.copy()
+        fluorQDChannels.remove('BF')
         
-        #modify images for analysis
-        org_img = imageOtherStacks[:,:,i]
-       
-        fluorImg = org_img
-        img_max = np.array(fluorImg.shape).max()
-        img_min = 0
+        # remove the BF image from stack
+        imageOtherStacks = np.copy(image)
+        imageOtherStacks = np.delete(imageOtherStacks,indexBF, 2)
         
-        # run function to  get average normalized ROI value
-        roiLoc, avgRoiVal = get_ROI(fluorImg, imageInfo, rects_scalefactor)
-        avgRoiVal =  avgRoiVal.reshape((avgRoiVal.shape[0], 1))
-        # add ROI average value to image info matrix
-        imageInfo  = np.concatenate((imageInfo, avgRoiVal), axis = 1)
-        
-        if thresholdTrue == 1:
+        #run through all the other stacks in the .tif file
+        for i, channel in enumerate(fluorQDChannels):
+            channelName = channel + ' in '  + imageName
             
-            # make array of boolean for the average values
-            posDropletsBool = avgRoiVal >= thresholds[i]
-            # add data to the image info matrix
-            imageInfo  = np.concatenate((imageInfo, posDropletsBool), axis = 1)
+            #modify images for analysis
+            org_img = imageOtherStacks[:,:,i]
+           
+            fluorImg = org_img
+            img_max = np.array(fluorImg.shape).max()
+            img_min = 0
             
+            # run function to  get average normalized ROI value
+            roiLoc, avgRoiVal = get_ROI(fluorImg, imageInfo, rects_scalefactor)
+            avgRoiVal =  avgRoiVal.reshape((avgRoiVal.shape[0], 1))
+            # add ROI average value to image info matrix
+            imageInfo  = np.concatenate((imageInfo, avgRoiVal), axis = 1)
             
-            #plot ROI intensity histogram with cutoff line
-            plt.title(channelName + " Pixel Intensity Histogram")
-            plt.xlabel("Average Normalized Intensity Value")
-            plt.ylabel("Intensity Frequency")
-            plt.ylim(0, 20)
-            y, bins, patches = plt.hist(avgRoiVal, bins = 50 , range = [0, 1], density=True)
-            plt.axvline(thresholds[i], color='k', linestyle='dashed', linewidth=1)
-            plt.show()
+            if thresholdTrue == 1:
+                
+                # make array of boolean for the average values
+                posDropletsBool = avgRoiVal >= thresholds[i]
+                # add data to the image info matrix
+                imageInfo  = np.concatenate((imageInfo, posDropletsBool), axis = 1)
+                
+                
+                #plot ROI intensity histogram with cutoff line
+                plt.title(channelName + " Pixel Intensity Histogram")
+                plt.xlabel("Average Normalized Intensity Value")
+                plt.ylabel("Intensity Frequency")
+                plt.ylim(0, 20)
+                y, bins, patches = plt.hist(avgRoiVal, bins = 50 , range = [0, 1], density=True)
+                plt.axvline(thresholds[i], color='k', linestyle='dashed', linewidth=1)
+                plt.show()
+                
+                #show rois on image
+                img_rescale= exposure.rescale_intensity(fluorImg)
+                img_rescale = cv2.convertScaleAbs(img_rescale, alpha =(255.0/65535.0))
+                #make 3D so can put color on images
+                img_overlay = np.dstack((img_rescale,img_rescale,img_rescale))
+                # i is the 0 or 1 if the droplet is positive, circs contains the (x, y, radius in pixels)
+                # rect is for the locaitons to draw the rectangles
+                for i, circ, rect in zip(posDropletsBool, imageInfo[:,0:3], roiLoc):
+                    # determine if the average pixel value in the rectangular roi is larger than the threshold
+                    if i == 1:
+                        circ_color = (0, 255, 0) # draw green
+                    else:
+                        circ_color = (255, 0, 0) # draw red
+                    img_overlay = cv2.circle(img_overlay, (int(circ[0]), int(circ[1])), int(circ[2]), circ_color, 2)
+                    #img_overlay = cv2.rectangle(img_overlay,(rect[0], rect[1]), (rect[0] + rect[2], rect[1] + rect[2]), circ_color, 2)
             
-            #show rois on image
-            img_rescale= exposure.rescale_intensity(fluorImg)
-            img_rescale = cv2.convertScaleAbs(img_rescale, alpha =(255.0/65535.0))
-            #make 3D so can put color on images
-            img_overlay = np.dstack((img_rescale,img_rescale,img_rescale))
-            # i is the 0 or 1 if the droplet is positive, circs contains the (x, y, radius in pixels)
-            # rect is for the locaitons to draw the rectangles
-            for i, circ, rect in zip(posDropletsBool, imageInfo[:,0:3], roiLoc):
-                # determine if the average pixel value in the rectangular roi is larger than the threshold
-                if i == 1:
-                    circ_color = (0, 255, 0) # draw green
+                if showImage == 1:
+                   
+                    make_CV2image(img_overlay, channelName + ' Circle Locations', 1,1)
                 else:
-                    circ_color = (255, 0, 0) # draw red
-                img_overlay = cv2.circle(img_overlay, (int(circ[0]), int(circ[1])), int(circ[2]), circ_color, 2)
-                #img_overlay = cv2.rectangle(img_overlay,(rect[0], rect[1]), (rect[0] + rect[2], rect[1] + rect[2]), circ_color, 2)
-        
-            if showImage == 1:
-               
-                make_CV2image(img_overlay, channelName + ' Circle Locations', 1,1)
-            else:
-                make_CV2image(img_overlay, channelName + ' Circle Locations', 0,1)
+                    make_CV2image(img_overlay, channelName + ' Circle Locations', 0,1)
+                
             
-        
-        #save image info to List if this is the last image in the vertical tif stack
-        if channel ==  fluorQDChannels[-1]:
-            allImages.append(imageInfo)
-    
+            #save image info to List if this is the last image in the vertical tif stack
+            if channel ==  fluorQDChannels[-1]:
+                allImages.append(imageInfo)
+    else:
+        # save information to image Info even if the image only contains the BF
+       allImages.append(imageInfo)
+           
+           
     # create  and save composite images if needed
     #if compositeSave == 1:
      # make composite image: https://stackoverflow.com/questions/65439230/convert-grayscale-2d-numpy-array-to-rgb-image
@@ -188,15 +193,15 @@ if saveToExcel == 1:
     fluorEdit = [s + addString for s in fluorQDChannels]    
     columnName=['x', 'y', 'Radius pixel', 'Radius um', 'Volume pL']
     
-    
-    if thresholdTrue == 1:
-        # edit the column names 
-        posName = 'Positive Droplets'
-        
-        fluorEdit = [e for i in fluorEdit for e in [i, i.replace(' Normalized Intensity', " ") + posName ]]
-        columnName.extend(fluorEdit)
-    else:
-        columnName.extend(fluorEdit)
+    if len(imagingChannels) > 1:
+        if thresholdTrue == 1:
+            # edit the column names 
+            posName = 'Positive Droplets'
+            
+            fluorEdit = [e for i in fluorEdit for e in [i, i.replace(' Normalized Intensity', " ") + posName ]]
+            columnName.extend(fluorEdit)
+        else:
+            columnName.extend(fluorEdit)
     
     # convert data into data frames
     for i in allImages: 
@@ -210,6 +215,7 @@ if saveToExcel == 1:
     multiple_dfs(dFImage, imageNames, 'Results', exceFileName , 1)    
 
 #%% Can use to check your threshold
+
 def gaussian(x, mean, amplitude, standard_deviation):
     return amplitude * np.exp( - (x - mean)**2 / (2*standard_deviation ** 2))
 
