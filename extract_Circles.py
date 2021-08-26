@@ -40,7 +40,7 @@ def get_Circles(img, fileName, showImg):
     # Initialize parameter settiing using cv2.SimpleBlobDetector
     params = cv2.SimpleBlobDetector_Params()
     # min and max radius expected in pixles
-    maxRadiusPixel = 100
+    maxRadiusPixel = 300
     minRadiusPixel = 10
     
     # Set Area filtering parameters
@@ -56,7 +56,7 @@ def get_Circles(img, fileName, showImg):
     params.minCircularity = 0.5
       
     # No Convexity filtering parameters
-    params.filterByConvexity = False
+    params.filterByConvexity = False;
     #.minConvexity = 0.2
     
     # No inertia filtering parameters
@@ -64,7 +64,7 @@ def get_Circles(img, fileName, showImg):
     
     #specifies that the circles cannot overlap I think, or that the centers of the circles
     # are a specific distance apart
-    params.minDistBetweenBlobs = 0.7
+    params.minDistBetweenBlobs = 0.3
       
     # Create a detector with the parameters
     detector = cv2.SimpleBlobDetector_create(params)
