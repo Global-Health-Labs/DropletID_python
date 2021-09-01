@@ -9,7 +9,9 @@ import numpy as np
 import pandas as pd
 from skimage import exposure
 import math
-
+from PIL import Image, ImageFilter
+from scipy.optimize import curve_fit
+from matplotlib import pyplot as plt # for plotting
 
 # internal function that grabs a smaller section of a larger matrix
 def sub_Matrix(matrix, startRow, startCol, size):
@@ -40,8 +42,8 @@ def get_Circles(img, fileName, showImg):
     # Initialize parameter settiing using cv2.SimpleBlobDetector
     params = cv2.SimpleBlobDetector_Params()
     # min and max radius expected in pixles
-    maxRadiusPixel = 100
-    minRadiusPixel = 10
+    maxRadiusPixel = 120
+    minRadiusPixel = 6
     
     # Set Area filtering parameters
     params.filterByArea = True
@@ -88,9 +90,9 @@ def get_Circles(img, fileName, showImg):
     if showImg == 1:
         make_CV2image(draw_circles,fileName, 1, 1)
         
-    else:
+    #else:
         # still save the image 
-        make_CV2image(draw_circles,fileName, 0, 1)
+        #make_CV2image(draw_circles,fileName, 0, 1)
        
     #makes array to hold radii and grabs all the circle radii from keypoints
     circle_radii = np.empty([number_of_circles, 1])
@@ -112,22 +114,30 @@ def get_Circles(img, fileName, showImg):
 
 #callable function to threshold BF for analysis
 def image_Prep(img, channel, imageName, imageShow):
-    
+    erosion_se = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7,7))
     channelName = channel + ' in '  + imageName
        
-    #increase brightness but stay  in 14 bit space
-    image_rescale = exposure.rescale_intensity(img)
-    #Dont' really need to threshold
+   # brighten image 
+    imgBright = exposure.rescale_intensity(img)
+    #Change to 8 bit 
+    img8b = cv2.convertScaleAbs(imgBright, alpha =(255.0/65535.0))
     
-    img_bw = cv2.convertScaleAbs(image_rescale, alpha =(255.0/65535.0))
-        
-    """
+    
+    #convert to matrix from  PIL 
+    imgPIL = Image.fromarray(img8b.astype('uint8'))
+    imgSharp =  imgPIL.filter(ImageFilter.UnsharpMask(radius=10, percent=200))
+    
+    #back to matrix and enhance with erosion and dialation
+    img = np.asarray( imgSharp)
+    img_erode = cv2.erode(img,erosion_se)
+    img_dialate = cv2.dilate(img_erode, erosion_se)    
+    
+    
     if imageShow == 1:
-        #plot and save modified image, needs to be converted to 8 bit to show
-        #image8 = cv2.convertScaleAbs(img_bw, alpha =(255.0/65535.0))
-        re = 600.0 / img_bw.shape[1]
-        dim = (600, int(img_bw.shape[0] * re))
-        resizeOutput = cv2.resize(img_bw, dim, interpolation=cv2.INTER_AREA)
+        #plot and save modified image, 
+        re = 600.0 / img_dialate.shape[1]
+        dim = (600, int(img_dialate.shape[0] * re))
+        resizeOutput = cv2.resize(img_dialate, dim, interpolation=cv2.INTER_AREA)
     
         cv2.imshow(channelName, resizeOutput )
     
@@ -136,10 +146,8 @@ def image_Prep(img, channel, imageName, imageShow):
         #cv2.imwrite(fileName, resizeOutput)
         cv2.waitKey(0)
         cv2.destroyAllWindows()
-    """
-
-        
-    return img_bw
+    
+    return img_dialate
 
 
 # callable function that returns the average intensity of ROIs
@@ -205,3 +213,45 @@ def multiple_dfs(df_list, imageNames, sheets, file_name, spaces):
     writer.save()
     writer.close()
 
+# internal function for gaussian curve
+def gaussian(x, mean, amplitude, standard_deviation):
+    return amplitude * np.exp( - (x - mean)**2 / (2*standard_deviation ** 2))
+
+def determineThreshold(negIntensity, channel):
+    num_bins = 500
+    
+    thresholdAll = [];
+    
+    for column in negIntensity:
+        currentNeg = column
+        mu = np.mean(currentNeg)
+        sigma = np.std(currentNeg)
+        
+        # The histogram of the data.
+        plt.figure(1)
+        yvalsN, binsN, patchesN = plt.hist(currentNeg, num_bins, range = [0, 1], density = True , label='Negative data')
+        bin_center = binsN[:-1] + np.diff(binsN) / 2
+        popt, pov = curve_fit(gaussian, bin_center, yvalsN)
+        
+        std3 = popt[0] + abs(3*popt[2])
+        
+        x_interval_for_fit = np.linspace(binsN[0], binsN[-1], 10000)
+        plt.plot(x_interval_for_fit, gaussian(x_interval_for_fit, *popt), label='fit')
+        gaussianVals = gaussian(x_interval_for_fit, *popt)
+        plt.axvline(std3, color='k', linestyle='dashed', linewidth=1)
+        plt.text(std3+.5, 5, r'Threshold 3$\sigma$ : %.2f' %std3)
+        plt.text(std3+.5, 3, r' Peak x val : %.2f' %popt[0])
+        plt.text(std3+.5,2, r'1$\sigma$ : %.3f' %popt[2])
+        plt.legend()
+        plt.ylim(0, 20)
+        plt.xlabel('Avg ROI Normalized Intensity')
+        plt.ylabel('Frequency')
+        plt.title('Histogram of Negative Droplet Intensity')         
+        plt.show()
+        thresholdAll.append(std3)
+    
+    meanThresh= np.mean(thresholdAll)
+    stdThresh =np.std(thresholdAll)
+    print(channel, r' Average Threshold: %.3f +/- %.3f' % (meanThresh, stdThresh) )
+    
+    return meanThresh
