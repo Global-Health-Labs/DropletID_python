@@ -157,7 +157,7 @@ def get_ROI(fluorImg, circs, scaleFactor):
     normFluorImg: should be the QD or fluorescent image (not normalized)
     that you want to get average intensity values for
     circs: a nparray of three columns (x, y, and r) that is returned from the get_Circles function
-    scale Factor: how small the rectangle roi should be in the circle
+    scale Factor: how small the rectangle roi should be in the circle compared to the diameter
     '''
     img_max = np.array(fluorImg.shape).max()
     img_min = 0
@@ -165,6 +165,7 @@ def get_ROI(fluorImg, circs, scaleFactor):
     normFluorImg = fluorImg / (2**14 -1)
     # calculate the rectangles in the circular ROI  matrix is upper left x, upper left y, side of half of the square
     roiRect = [[int(circ[0]-circ[2]/math.sqrt(2)*scaleFactor), int(circ[1]-circ[2]/math.sqrt(2)*scaleFactor), int(circ[2]*math.sqrt(2)*scaleFactor)] for circ in circs]
+    
     # remove any indicies outside the bounds of the image matrix
     roiRect = np.clip(roiRect, img_min, img_max)
     

@@ -49,9 +49,9 @@ from inference import lam_dvv
 #------Change the parameters below ----------
 
 # path to Image folder - copy absolute path of the folder
-directory = r'C:/Users/LaelWentland/Global Health Labs, Inc/Digital Assay Feasibility - Data/Interns/Lael W/20210826 Louise MultiModal Data/20210824Images'
+directory = r'C:/Users/LaelWentland/Global Health Labs, Inc/Digital Assay Feasibility - Data/Interns/Lael W/20210826 Louise MultiModal Data/20210825Images'
 replicates = 5
-noOfNegatives = 4 # just in case you have different number of negative images than regular replicates
+noOfNegatives = 5 # just in case you have different number of negative images than regular replicates
 imagingChannels = ['Cy5', 'FAM', 'BF'] # list in order the image acquisition mode
 showImage = 0  # 0 = no don't show, 1  = yes please show images!
 saveToExcel = 1 # 0 = no don't save, 1 = yes please save to excel!
@@ -251,15 +251,16 @@ if saveToExcel == 1:
 from collections import defaultdict
 #convert from pL to uL for all the volumes
 totalDroplets =  [i[:, 4]*10**-6 for i in allImageData]
-totalPositive = [i[:, 8]*i[:,4]*10**-6   for i in allImageData] # for IL8
-#totalPositive = [i[:, 6]*i[:,4]*10**-6   for i in allImageData] # for gDNA
+#totalPositive = [i[:, 8]*i[:,4]*10**-6   for i in allImageData] # for IL8
+totalPositive = [i[:, 6]*i[:,4]*10**-6   for i in allImageData] # for gDNA
 totalPositive = [np.delete(arr, np.argwhere( (arr == 0))) for arr in totalPositive]
 
 
 
-#dnaCurve = {'A' :1000,'B': 100, 'C': 10, 'D' : 5, 'E': 1,'F': 0.5,'G': 0.1,  'H': 0} # copies/uL
+dnaCurve = {'A' :1000,'B': 100, 'C': 10, 'D' : 5, 'E': 1,'F': 0.5,'G': 0.1,  'H': 0} # copies/uL
+
 estConcDVV = defaultdict(list)
-"""
+
 for num, tot, pos in zip(allImageNames, totalDroplets, totalPositive):
    
     estConc =  lam_dvv(pos, tot.sum())
@@ -299,3 +300,4 @@ plt.xlim([10**-5, 10**4])
 plt.ylim([10**-5, 10**4])
 plt.xscale('log')
 plt.show()
+"""
