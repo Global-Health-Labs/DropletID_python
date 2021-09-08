@@ -18,7 +18,7 @@ to be analyzed and the sequence of images in the .tif stack
 If you choose to show images you need to exit each image that pops up in the viewer 
 or else the code wont go on, 
 
-The output  is a saved image of the circle detection, composite image (coming soon)
+The output  is a saved image of the circle detection
  and data on the number of positive droplets
 
 Necessary files to be in folder in addition to all the different libraries I use: 
@@ -56,7 +56,6 @@ imagingChannels = ['Cy5', 'FAM', 'BF'] # list in order the image acquisition mod
 showImage = 0  # 0 = no don't show, 1  = yes please show images!
 saveToExcel = 1 # 0 = no don't save, 1 = yes please save to excel!
 thresholdTrue = 1 # 0 = don't do the thresholding analysis placeholder
-compositeSave = 0 # 0 = don't create and show composite images- coming soon!
 thresholds = { 'FAM': 0.83, 'Cy5': 0.6} # choose threshold manually if you want, 
 #if thresholds dictionary is left blank then the computer will automatically grab the last few 
 # images and generate a threshold based on those
@@ -208,8 +207,8 @@ if len(imagingChannels) > 1:
 
           
 # create  and save composite images if needed
-#if compositeSave == 1:
-# make composite image: https://stackoverflow.com/questions/65439230/convert-grayscale-2d-numpy-array-to-rgb-image
+# 
+# ideas to make composite image: https://stackoverflow.com/questions/65439230/convert-grayscale-2d-numpy-array-to-rgb-image
 
 volDistribution = [img[:,-3] for img in allImageData]
 #%%
@@ -253,10 +252,11 @@ from collections import defaultdict
 totalDroplets =  [i[:, 4]*10**-6 for i in allImageData]
 #totalPositive = [i[:, 8]*i[:,4]*10**-6   for i in allImageData] # for IL8
 totalPositive = [i[:, 6]*i[:,4]*10**-6   for i in allImageData] # for gDNA
+# delete any data from droplets that are not positive
 totalPositive = [np.delete(arr, np.argwhere( (arr == 0))) for arr in totalPositive]
 
 
-
+# use the first letter of the image name to group the concentrations
 dnaCurve = {'A' :1000,'B': 100, 'C': 10, 'D' : 5, 'E': 1,'F': 0.5,'G': 0.1,  'H': 0} # copies/uL
 
 estConcDVV = defaultdict(list)
